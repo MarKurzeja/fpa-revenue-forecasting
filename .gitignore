@@ -16,8 +16,6 @@ exports/powerbi/*
 # Aggregated real outputs for the app: only commit after checking the Kaggle terms (docs/DECISIONS.md D-12)
 artifacts/demo/*
 !artifacts/demo/.gitkeep
-reports/figures/*.png
-!reports/figures/.gitkeep
 # outputs of the fast `run.py check` run
 reports/check/
 exports/check/

@@ -332,7 +332,10 @@ def build_report(cfg: Config) -> Path:
     if coh.exists():
         md += [
             "Coherence check (every parent = sum of children): "
-            + ", ".join(f"{k}: {'pass' if v else 'FAIL'}" for k, v in io.load_json(coh).items()),
+            + ", ".join(
+                f"{k}: {'pass' if v else ('FAIL' if '+' in k else 'not coherent (base, expected)')}"
+                for k, v in io.load_json(coh).items()
+            ),
             "",
         ]
 
