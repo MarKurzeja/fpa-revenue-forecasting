@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.DS_Store
+# M5 data and anything derived from it at item level: never committed (Kaggle terms)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+exports/powerbi/*
+!exports/powerbi/.gitkeep
+# Aggregated real outputs for the app: only commit after checking the Kaggle terms (docs/DECISIONS.md D-12)
+artifacts/demo/*
+!artifacts/demo/.gitkeep
+reports/figures/*.png
+!reports/figures/.gitkeep
+# outputs of the fast `run.py check` run
+reports/check/
+exports/check/
+SPEC.md

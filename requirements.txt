@@ -1,0 +1,16 @@
+duckdb==1.1.3
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==18.0.0
+scipy==1.14.1
+statsforecast==1.7.8
+lightgbm==4.5.0; platform_system != "Darwin"
+pyyaml==6.0.2
+matplotlib==3.9.2
+plotly==5.24.1
+streamlit==1.40.1
+kaggle==1.6.17
+pytest==8.3.3
+pytest-cov==6.0.0
+ruff==0.16.9
+scikit-learn==1.9.1

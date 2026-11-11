@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install pinned requirements
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Unit tests with coverage
+        run: >
+          pytest --cov=fpa --cov-report=term-missing:skip-covered
+          --cov-fail-under=80
+      # The pipeline gate (`python run.py check`) needs the real M5 data, which cannot be
+      # redistributed. With Kaggle credentials stored as repository secrets it runs too.
+      - name: Real-data pipeline gate (only if Kaggle secrets are set)
+        if: env.KAGGLE_USERNAME != ''
+        run: |
+          python run.py download
+          python run.py check

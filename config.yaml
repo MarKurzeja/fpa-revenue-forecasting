@@ -1,0 +1,119 @@
+# All assumptions live here (SPEC §0). Code never hard-codes them.
+seed: 42
+
+paths:
+  raw_dir: data/raw                 # M5 CSVs (git-ignored, downloaded with `run.py download`)
+  processed_dir: data/processed     # DuckDB file + Parquet cache (git-ignored)
+  duckdb_file: data/processed/fpa.duckdb
+  artifacts_dir: data/processed/artifacts
+  reports_dir: reports/latest
+  figures_dir: reports/figures
+  exports_dir: exports/powerbi
+  demo_dir: artifacts/demo
+
+data:
+  kaggle_competition: m5-forecasting-accuracy
+  kaggle_rules_url: https://www.kaggle.com/competitions/m5-forecasting-accuracy/rules
+  # Facts from memory of M5 (SPEC §2.1). `run.py build` verifies them and writes
+  # docs/DATA_FACTS.md with what the data actually contains.
+  expected:
+    n_series: 30490
+    n_items: 3049
+    n_stores: 10
+    n_states: 3
+    n_cats: 3
+    n_depts: 7
+    first_date: "2011-01-29"
+    last_date: "2016-05-22"
+  row_count_tolerance: 0.01
+  closure_events:              # (month, day) of store-closure days, flagged in dim_date
+    - [12, 25]
+  # Optional subset for a faster run (null = all). Used by `run.py check`.
+  stores: null
+
+fiscal:
+  year_end_month: 1            # Walmart FY ends 31 January; fiscal_year = calendar year it ends in
+  month_mode: calendar         # calendar | 445  (see docs/DECISIONS.md D-03)
+  week_anchor_day: 3           # 0=Sat ... 3=Tue: the day of the Walmart week that decides its fiscal month
+
+forecast:
+  horizon: 13                  # weeks = one fiscal quarter
+  season_length: 52
+
+backtest:
+  n_origins: 8
+  origin_step: 4               # weeks between origins
+  holdout_weeks: 13            # final hold-out, never used for selection or tuning
+  n_validation_origins: 4      # earliest origins: model selection, tuning, interval calibration
+  use_future_prices: false     # true = treat realised future price index as known (planned price)
+  selection_metric: mean_wape_levels
+
+models:
+  baselines: [naive, seasonal_naive, ma4, ma13, run_rate]
+  stats: [auto_ets, auto_arima, auto_theta]
+  ml: [lightgbm]
+  run_rate:
+    window: 13
+    max_years: 3               # years of history averaged into the seasonality index
+  arima:
+    mode: fourier              # fourier (ARIMA + yearly Fourier terms) | seasonal (season_length 52)
+    fourier_k: 6
+  lightgbm:
+    lags: [1, 2, 3, 4, 8, 13, 26, 52]
+    rolling_windows: [4, 13, 52]
+    target_transforms: [log1p, trailing_mean]
+    train_origin_stride: 1     # use every past week as a training origin
+    long_horizon_stride: 2     # stride when training for horizons > 13 (budget)
+    grid:
+      num_leaves: [15, 31]
+      learning_rate: [0.05]
+      n_estimators: [300, 600]
+      min_child_samples: [20]
+    fixed_params:
+      subsample: 0.8
+      subsample_freq: 1
+      colsample_bytree: 0.8
+      verbose: -1
+  ensemble_top_k: 3
+
+intervals:
+  levels: [80, 95]
+  # Conformal intervals (baselines, LightGBM, ensemble, reconciled) are calibrated
+  # on validation-origin residuals, per hierarchy level and horizon bucket.
+  horizon_buckets: [[1, 4], [5, 8], [9, 13]]
+
+reconciliation:
+  methods: [bottom_up, top_down, mint_ols, mint_shrink]
+
+planning:
+  budget_fiscal_year: null     # null = last full fiscal year in the data
+  model: champion              # champion = best (validated) model + reconciliation from backtest
+
+working_capital:
+  cogs_ratio: {FOODS: 0.75, HOBBIES: 0.60, HOUSEHOLD: 0.65}   # assumption, documented
+  lead_time_weeks: 2
+  service_levels: [0.90, 0.95, 0.98]
+  annual_carrying_cost_rate: 0.20
+  compare_methods: [seasonal_naive, run_rate, champion]
+
+scenarios:
+  price_changes: [-0.05, 0.05]
+  major_events: [SuperBowl, Easter, Thanksgiving, Christmas, NewYear, IndependenceDay, LaborDay, MemorialDay]
+
+quality:                       # gates used by `run.py check`
+  max_wape_ratio_vs_snaive: 1.0
+  coverage_band:
+    "80": [0.60, 0.95]
+    "95": [0.80, 0.995]
+  coherence_tolerance: 1.0e-6
+
+check:                         # fast real-data run used by `run.py check`
+  stores: [CA_1, TX_1, WI_1]
+  n_origins: 3
+  n_validation_origins: 2
+  stats: [auto_ets, auto_theta]
+  lightgbm_grid:
+    num_leaves: [15]
+    learning_rate: [0.05]
+    n_estimators: [200]
+    min_child_samples: [20]
